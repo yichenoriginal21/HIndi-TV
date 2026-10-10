@@ -79,7 +79,7 @@
             cursor: pointer;
         }
         .dl-btn:disabled { background: #4b5563; cursor: not-allowed; color: #9ca3af; }
-        #statusMessage { margin-bottom: 20px; padding: 12px; border-radius: 6px; display: none; text-align: center; font-size: 14px; }
+        #statusMessage { margin-bottom: 20px; padding: 12px; border-radius: 6px; display: none; text-align: center; font-size: 14px; word-break: break-all; }
     </style>
 </head>
 <body>
@@ -127,7 +127,7 @@
                 desc: "A romantic fantasy drama series.",
                 episodes: [
                     { ep: 1, terabox_url: "https://1024terabox.com/s/1JHxvRn9Y3oAklgSm-9Pwrg" },
-                    { ep: 2, terabox_url: "https://terabox.com/s/1exampleLinkA2" }
+                    { ep: 2, terabox_url: "https://terabox.com/s/1JHxvRn9Y3oAklgSm-9Pwrg" }
                 ]
             },
             {
@@ -137,7 +137,7 @@
                 poster: "https://picsum.photos/300/450?random=2",
                 desc: "Historical Korean drama full of action and intrigue.",
                 episodes: [
-                    { ep: 1, terabox_url: "https://terabox.com/s/1exampleLinkB1" }
+                    { ep: 1, terabox_url: "https://terabox.com/s/1JHxvRn9Y3oAklgSm-9Pwrg" }
                 ]
             }
         ];
@@ -180,7 +180,6 @@
                 epContainer.appendChild(row);
             });
 
-            // Toggle active views
             document.getElementById('catalogView').classList.remove('active');
             document.getElementById('detailView').classList.add('active');
             window.scrollTo(0, 0);
@@ -205,20 +204,33 @@
             statusBox.innerText = `Fetching direct download link for Episode ${epNumber}...`;
 
             try {
-                // Connected to your live Vercel backend extractor API
-                const apiGatewayUrl = `https://terabox-gateway-iota.vercel.app/api?url=${encodeURIComponent(teraboxUrl)}`;
+                const apiGatewayUrl = `https://terabox-gateway-lr54zxprx-yichen12.vercel.app/api?url=${encodeURIComponent(teraboxUrl)}`;
                 
                 const response = await fetch(apiGatewayUrl);
-                const data = await response.json();
+                const text = await response.text();
 
-                if (data.status === 'success' && (data.download || data.download_link)) {
-                    const directLink = data.download || data.download_link;
-                    const fileName = data.filename || `Episode_${epNumber}.mp4`;
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}...`);
+                }
+
+                if (response.ok && data.status === 'success' && (data.download || data.download_link || data.files)) {
+                    // Handle file list response vs direct link response
+                    let directLink = data.download || data.download_link;
+                    if (!directLink && data.files && data.files.length > 0) {
+                        directLink = data.files[0].dlink || data.files[0].download_link;
+                    }
+                    const fileName = data.filename || (data.files && data.files[0] ? data.files[0].server_filename : `Episode_${epNumber}.mp4`);
+
+                    if (!directLink) {
+                        throw new Error("Extractor returned file data, but no direct download link was found.");
+                    }
 
                     statusBox.style.background = '#14532d';
                     statusBox.innerText = `Starting local download for Episode ${epNumber}!`;
 
-                    // Automatically trigger file download directly into local device storage
                     const a = document.createElement('a');
                     a.href = directLink;
                     a.download = fileName;
@@ -228,7 +240,7 @@
                     document.body.removeChild(a);
 
                 } else {
-                    throw new Error(data.message || "Could not extract link.");
+                    throw new Error(data.message || data.error || "Could not extract link.");
                 }
             } catch (err) {
                 statusBox.style.background = '#7f1d1d';
