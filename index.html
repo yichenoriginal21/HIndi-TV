@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drama Download Hub - Single Page</title>
+    <style>
+        :root {
+            --bg-color: #0f1015;
+            --card-bg: #1a1c23;
+            --accent-color: #22c55e;
+            --text-main: #ffffff;
+            --text-muted: #9ca3af;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background: #14161f;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #2a2e39;
+        }
+        .logo { font-size: 22px; font-weight: bold; color: var(--accent-color); cursor: pointer; text-decoration: none; }
+        .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
+        
+        /* Views */
+        .view { display: none; }
+        .view.active { display: block; }
+
+        /* Catalog Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s;
+            border: 1px solid #2a2e39;
+        }
+        .card:hover { transform: translateY(-5px); border-color: var(--accent-color); }
+        .card img { width: 100%; height: 260px; object-fit: cover; }
+        .card-content { padding: 12px; }
+        .card-title { font-size: 14px; font-weight: 600; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .card-info { font-size: 12px; color: var(--text-muted); }
+
+        /* Detail View */
+        .back-btn { background: #222632; border: 1px solid #3b4252; color: white; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin-bottom: 20px; display: inline-block; }
+        .back-btn:hover { background: #33394a; }
+        .drama-header { display: flex; gap: 20px; margin-bottom: 30px; background: var(--card-bg); padding: 20px; border-radius: 8px; border: 1px solid #2a2e39; }
+        .drama-header img { width: 120px; height: 170px; border-radius: 6px; object-fit: cover; }
+        .ep-list { display: flex; flex-direction: column; gap: 12px; }
+        .ep-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--card-bg);
+            padding: 15px 20px;
+            border-radius: 8px;
+            border: 1px solid #2a2e39;
+        }
+        .dl-btn {
+            background: var(--accent-color);
+            color: #000;
+            border: none;
+            padding: 8px 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .dl-btn:disabled { background: #4b5563; cursor: not-allowed; color: #9ca3af; }
+        #statusMessage { margin-bottom: 20px; padding: 12px; border-radius: 6px; display: none; text-align: center; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <span class="logo" onclick="showCatalogView()">DramaHub Downloader</span>
+    </header>
+
+    <div class="container">
+        
+        <!-- VIEW 1: DRAMA CATALOG (Poster Grid) -->
+        <div id="catalogView" class="view active">
+            <h2 style="margin-bottom: 20px;">Select a Drama to Download</h2>
+            <div class="grid" id="dramaGrid"></div>
+        </div>
+
+        <!-- VIEW 2: EPISODE DOWNLOAD VIEW -->
+        <div id="detailView" class="view">
+            <button class="back-btn" onclick="showCatalogView()">&larr; Back to Catalog</button>
+            
+            <div class="drama-header">
+                <img id="detailPoster" src="" alt="">
+                <div>
+                    <h1 id="detailTitle" style="margin: 0 0 10px 0;"></h1>
+                    <p id="detailDesc" style="color: var(--text-muted); font-size: 14px; margin: 0;"></p>
+                </div>
+            </div>
+
+            <div id="statusMessage"></div>
+
+            <h3>Download Episodes Directly</h3>
+            <div class="ep-list" id="episodeContainer"></div>
+        </div>
+
+    </div>
+
+    <script>
+        // Database of Dramas and their TeraBox links
+        const dramas = [
+            {
+                id: "against-current",
+                title: "Against the Current",
+                category: "Chinese Drama",
+                poster: "https://picsum.photos/300/450?random=1",
+                desc: "A romantic fantasy drama series.",
+                episodes: [
+                    { ep: 1, terabox_url: "https://terabox.com/s/1exampleLinkA1" },
+                    { ep: 2, terabox_url: "https://terabox.com/s/1exampleLinkA2" }
+                ]
+            },
+            {
+                id: "spring-blade",
+                title: "Spring of the Blade",
+                category: "Korean Drama",
+                poster: "https://picsum.photos/300/450?random=2",
+                desc: "Historical Korean drama full of action and intrigue.",
+                episodes: [
+                    { ep: 1, terabox_url: "https://terabox.com/s/1exampleLinkB1" }
+                ]
+            }
+        ];
+
+        // Render Catalog Grid on load
+        const grid = document.getElementById('dramaGrid');
+        dramas.forEach(drama => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.onclick = () => showDetailView(drama.id);
+            card.innerHTML = `
+                <img src="${drama.poster}" alt="${drama.title}">
+                <div class="card-content">
+                    <div class="card-title">${drama.title}</div>
+                    <div class="card-info">${drama.category}</div>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+
+        // Switch to Detail View for a specific drama
+        function showDetailView(dramaId) {
+            const drama = dramas.find(d => d.id === dramaId);
+            if (!drama) return;
+
+            document.getElementById('detailTitle').innerText = drama.title;
+            document.getElementById('detailPoster').src = drama.poster;
+            document.getElementById('detailDesc').innerText = drama.desc;
+
+            const epContainer = document.getElementById('episodeContainer');
+            epContainer.innerHTML = '';
+
+            drama.episodes.forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'ep-row';
+                row.innerHTML = `
+                    <span>Episode ${item.ep}</span>
+                    <button class="dl-btn" onclick="triggerDirectDownload('${item.terabox_url}', ${item.ep}, this)">Download EP ${item.ep}</button>
+                `;
+                epContainer.appendChild(row);
+            });
+
+            // Toggle active views
+            document.getElementById('catalogView').classList.remove('active');
+            document.getElementById('detailView').classList.add('active');
+            window.scrollTo(0, 0);
+        }
+
+        // Switch back to Main Catalog view
+        function showCatalogView() {
+            document.getElementById('statusMessage').style.display = 'none';
+            document.getElementById('detailView').classList.remove('active');
+            document.getElementById('catalogView').classList.add('active');
+            window.scrollTo(0, 0);
+        }
+
+        // Extract TeraBox link via backend API and trigger local download instantly
+        async function triggerDirectDownload(teraboxUrl, epNumber, btnElement) {
+            const statusBox = document.getElementById('statusMessage');
+            btnElement.disabled = true;
+            btnElement.innerText = "Extracting...";
+            
+            statusBox.style.display = 'block';
+            statusBox.style.background = '#1e3a8a';
+            statusBox.innerText = `Fetching direct download link for Episode ${epNumber}...`;
+
+            try {
+                // Replace with your free deployed backend extractor API URL (e.g. Vercel)
+                const apiGatewayUrl = `https://your-free-backend-extractor.vercel.app/api?url=${encodeURIComponent(teraboxUrl)}`;
+                
+                const response = await fetch(apiGatewayUrl);
+                const data = await response.json();
+
+                if (data.status === 'success' && (data.download || data.download_link)) {
+                    const directLink = data.download || data.download_link;
+                    const fileName = data.filename || `Episode_${epNumber}.mp4`;
+
+                    statusBox.style.background = '#14532d';
+                    statusBox.innerText = `Starting local download for Episode ${epNumber}!`;
+
+                    // Automatically trigger file download directly into local device storage
+                    const a = document.createElement('a');
+                    a.href = directLink;
+                    a.download = fileName;
+                    a.setAttribute('target', '_blank');
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+
+                } else {
+                    throw new Error(data.message || "Could not extract link.");
+                }
+            } catch (err) {
+                statusBox.style.background = '#7f1d1d';
+                statusBox.innerText = `Download failed: ${err.message}`;
+            } finally {
+                btnElement.disabled = false;
+                btnElement.innerText = `Download EP ${epNumber}`;
+            }
+        }
+    </script>
+</body>
+</html>
