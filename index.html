@@ -127,7 +127,7 @@
                 desc: "A romantic fantasy drama series.",
                 episodes: [
                     { ep: 1, terabox_url: "https://1024terabox.com/s/1JHxvRn9Y3oAklgSm-9Pwrg" },
-                    { ep: 2, terabox_url: "https://terabox.com/s/1JHxvRn9Y3oAklgSm-9Pwrg" }
+                    { ep: 2, terabox_url: "https://1024terabox.com/s/1JHxvRn9Y3oAklgSm-9Pwrg" }
                 ]
             },
             {
@@ -137,7 +137,7 @@
                 poster: "https://picsum.photos/300/450?random=2",
                 desc: "Historical Korean drama full of action and intrigue.",
                 episodes: [
-                    { ep: 1, terabox_url: "https://terabox.com/s/1JHxvRn9Y3oAklgSm-9Pwrg" }
+                    { ep: 1, terabox_url: "https://1024terabox.com/s/1JHxvRn9Y3oAklgSm-9Pwrg" }
                 ]
             }
         ];
@@ -217,7 +217,6 @@
                 }
 
                 if (response.ok && data.status === 'success' && (data.download || data.download_link || data.files)) {
-                    // Handle file list response vs direct link response
                     let directLink = data.download || data.download_link;
                     if (!directLink && data.files && data.files.length > 0) {
                         directLink = data.files[0].dlink || data.files[0].download_link;
