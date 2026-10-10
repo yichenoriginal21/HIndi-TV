@@ -127,7 +127,7 @@
                 desc: "A romantic fantasy drama series.",
                 episodes: [
                     { ep: 1, terabox_url: "https://1024terabox.com/s/1JHxvRn9Y3oAklgSm-9Pwrg" },
-                    { ep: 2, terabox_url: "https://1024terabox.com/s/1JHxvRn9Y3oAklgSm-9Pwrg" }
+                    { ep: 2, terabox_url: "https://terabox.com/s/1JHxvRn9Y3oAklgSm-9Pwrg" }
                 ]
             },
             {
@@ -137,7 +137,7 @@
                 poster: "https://picsum.photos/300/450?random=2",
                 desc: "Historical Korean drama full of action and intrigue.",
                 episodes: [
-                    { ep: 1, terabox_url: "https://1024terabox.com/s/1JHxvRn9Y3oAklgSm-9Pwrg" }
+                    { ep: 1, terabox_url: "https://terabox.com/s/1JHxvRn9Y3oAklgSm-9Pwrg" }
                 ]
             }
         ];
@@ -193,61 +193,28 @@
             window.scrollTo(0, 0);
         }
 
-        // Extract TeraBox link via backend API and trigger local download instantly
-        async function triggerDirectDownload(teraboxUrl, epNumber, btnElement) {
+        // Bypass CORS and fetch blocks entirely by using direct gateway redirection
+        function triggerDirectDownload(teraboxUrl, epNumber, btnElement) {
             const statusBox = document.getElementById('statusMessage');
             btnElement.disabled = true;
-            btnElement.innerText = "Extracting...";
+            btnElement.innerText = "Redirecting...";
             
             statusBox.style.display = 'block';
             statusBox.style.background = '#1e3a8a';
-            statusBox.innerText = `Fetching direct download link for Episode ${epNumber}...`;
+            statusBox.innerText = `Preparing download stream for Episode ${epNumber}...`;
 
-            try {
-                const apiGatewayUrl = `https://terabox-gateway-lr54zxprx-yichen12.vercel.app/api?url=${encodeURIComponent(teraboxUrl)}`;
-                
-                const response = await fetch(apiGatewayUrl);
-                const text = await response.text();
+            // Point directly to your Vercel backend gateway URL with parameters
+            const apiGatewayUrl = `https://terabox-gateway-lr54zxprx-yichen12.vercel.app/api?url=${encodeURIComponent(teraboxUrl)}&resolve=1`;
+            
+            // Navigate the browser directly to the backend endpoint, avoiding CORS preflight checks
+            window.location.href = apiGatewayUrl;
 
-                let data;
-                try {
-                    data = JSON.parse(text);
-                } catch (e) {
-                    throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}...`);
-                }
-
-                if (response.ok && data.status === 'success' && (data.download || data.download_link || data.files)) {
-                    let directLink = data.download || data.download_link;
-                    if (!directLink && data.files && data.files.length > 0) {
-                        directLink = data.files[0].dlink || data.files[0].download_link;
-                    }
-                    const fileName = data.filename || (data.files && data.files[0] ? data.files[0].server_filename : `Episode_${epNumber}.mp4`);
-
-                    if (!directLink) {
-                        throw new Error("Extractor returned file data, but no direct download link was found.");
-                    }
-
-                    statusBox.style.background = '#14532d';
-                    statusBox.innerText = `Starting local download for Episode ${epNumber}!`;
-
-                    const a = document.createElement('a');
-                    a.href = directLink;
-                    a.download = fileName;
-                    a.setAttribute('target', '_blank');
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-
-                } else {
-                    throw new Error(data.message || data.error || "Could not extract link.");
-                }
-            } catch (err) {
-                statusBox.style.background = '#7f1d1d';
-                statusBox.innerText = `Download failed: ${err.message}`;
-            } finally {
+            // Reset button state after a brief moment
+            setTimeout(() => {
                 btnElement.disabled = false;
                 btnElement.innerText = `Download EP ${epNumber}`;
-            }
+                statusBox.style.display = 'none';
+            }, 3500);
         }
     </script>
 </body>
