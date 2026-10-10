@@ -126,7 +126,7 @@
                 poster: "https://picsum.photos/300/450?random=1",
                 desc: "A romantic fantasy drama series.",
                 episodes: [
-                    { ep: 1, terabox_url: "https://terabox.com/s/1exampleLinkA1" },
+                    { ep: 1, terabox_url: "https://1024terabox.com/s/1JHxvRn9Y3oAklgSm-9Pwrg" },
                     { ep: 2, terabox_url: "https://terabox.com/s/1exampleLinkA2" }
                 ]
             },
@@ -205,8 +205,8 @@
             statusBox.innerText = `Fetching direct download link for Episode ${epNumber}...`;
 
             try {
-                // Replace with your free deployed backend extractor API URL (e.g. Vercel)
-                const apiGatewayUrl = `https://your-free-backend-extractor.vercel.app/api?url=${encodeURIComponent(teraboxUrl)}`;
+                // Connected to your live Vercel backend extractor API
+                const apiGatewayUrl = `https://terabox-gateway-iota.vercel.app/api?url=${encodeURIComponent(teraboxUrl)}`;
                 
                 const response = await fetch(apiGatewayUrl);
                 const data = await response.json();
