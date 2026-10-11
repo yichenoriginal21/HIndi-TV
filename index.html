@@ -193,7 +193,7 @@
             window.scrollTo(0, 0);
         }
 
-        // Bypass CORS and fetch blocks entirely by using direct gateway redirection
+        // Redirect directly to PythonAnywhere backend API
         function triggerDirectDownload(teraboxUrl, epNumber, btnElement) {
             const statusBox = document.getElementById('statusMessage');
             btnElement.disabled = true;
@@ -203,10 +203,10 @@
             statusBox.style.background = '#1e3a8a';
             statusBox.innerText = `Preparing download stream for Episode ${epNumber}...`;
 
-            // Point directly to your Vercel backend gateway URL with parameters
-            const apiGatewayUrl = `https://terabox-gateway-lr54zxprx-yichen12.vercel.app/api?url=${encodeURIComponent(teraboxUrl)}&resolve=1`;
+            // Point directly to your PythonAnywhere backend gateway URL
+            const apiGatewayUrl = `https://yichen21.pythonanywhere.com/api?url=${encodeURIComponent(teraboxUrl)}&resolve=1`;
             
-            // Navigate the browser directly to the backend endpoint, avoiding CORS preflight checks
+            // Navigate browser directly to backend endpoint to initiate resolution/stream
             window.location.href = apiGatewayUrl;
 
             // Reset button state after a brief moment
