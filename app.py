@@ -9,19 +9,18 @@ PROXY_WORKER_URL = "https://tbx-proxy.shakir-ansarii075.workers.dev"
 
 @app.route('/api', methods=['GET'])
 def handle_api():
+    # Capture 'url' from frontend, but pass it as 'surl' to the worker
     terabox_url = request.args.get('url')
-    # Pass 'resolve' as the mode or include a mode parameter as required by your worker
     mode = request.args.get('mode', 'resolve')
 
     if not terabox_url:
         return jsonify({"status": "error", "message": "Missing 'url' parameter"}), 400
 
     try:
-        # Construct the endpoint call matching what the Cloudflare worker expects
-        proxy_endpoint = f"{PROXY_WORKER_URL}/api?mode={mode}&url={requests.utils.quote(terabox_url)}"
+        # Forward the parameter using 'surl' as required by the worker
+        proxy_endpoint = f"{PROXY_WORKER_URL}/api?mode={mode}&surl={requests.utils.quote(terabox_url)}"
         response = requests.get(proxy_endpoint, timeout=30)
         
-        # Try to return JSON if the worker responds with JSON
         try:
             data = response.json()
             return jsonify(data), response.status_code
