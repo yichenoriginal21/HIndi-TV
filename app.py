@@ -26,13 +26,24 @@ def handle_api():
         session = requests.Session()
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Cookie": f"ndus={NDUS_COOKIE}; lang=en"
+            "Cookie": f"ndus={NDUS_COOKIE}; lang=en",
+            "Referer": "https://www.terabox.com/"
         }
 
         # Query TeraBox's mobile share endpoint
         api_url = f"https://www.terabox.com/wap/share/info?surl={surl_code}"
         response = session.get(api_url, headers=headers, timeout=20)
-        data = response.json()
+        
+        # Try to parse JSON safely
+        try:
+            data = response.json()
+        except Exception:
+            return jsonify({
+                "status": "error",
+                "message": "TeraBox returned non-JSON data (likely a block or redirect page)",
+                "raw_text": response.text[:500], # Show first 500 characters of the response
+                "status_code": response.status_code
+            }), 500
 
         if data.get("errno") == 0 and "list" in data and len(data["list"]) > 0:
             file_info = data["list"][0]
@@ -45,7 +56,7 @@ def handle_api():
             "status": "error",
             "message": "Failed to extract download link from TeraBox response.",
             "terabox_response": data
-        }, 400)
+        }), 400
 
     except Exception as e:
         return jsonify({
