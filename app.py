@@ -27,22 +27,42 @@ def handle_api():
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Cookie": f"ndus={NDUS_COOKIE}; lang=en",
-            "Referer": "https://www.terabox.com/"
+            "Referer": "https://1024terabox.com/"
         }
 
-        # Query TeraBox's mobile share endpoint
-        api_url = f"https://www.terabox.com/wap/share/info?surl={surl_code}"
-        response = session.get(api_url, headers=headers, timeout=20)
+        # Step 1: Visit the share page to get cookies and extract security tokens
+        share_page_url = f"https://1024terabox.com/s/{surl_code}"
+        page_res = session.get(share_page_url, headers=headers, timeout=20)
         
-        # Try to parse JSON safely
+        if page_res.status_code != 200:
+            return jsonify({"status": "error", "message": "Failed to load TeraBox share page", "status_code": page_res.status_code}), 500
+
+        html_content = page_res.text
+
+        # Step 2: Extract jsToken and sign using regex
+        js_token_match = re.search(r'jsToken["\s*:]+["\']([a-zA-Z0-9]+)["\']', html_content)
+        sign_match = re.search(r'sign["\s*:]+["\']([a-zA-Z0-9]+)["\']', html_content)
+        
+        # Alternative pattern check if primary fails
+        if not js_token_match:
+            js_token_match = re.search(r'bdstoken["\s*:]+["\']([a-zA-Z0-9]+)["\']', html_content)
+
+        # Step 3: Query the file info endpoint using the session and extracted tokens
+        api_url = f"https://1024terabox.com/share/info?surl={surl_code}"
+        if js_token_match:
+            api_url += f"&jsToken={js_token_match.group(1)}"
+        if sign_match:
+            api_url += f"&sign={sign_match.group(1)}"
+
+        api_res = session.get(api_url, headers=headers, timeout=20)
+        
         try:
-            data = response.json()
+            data = api_res.json()
         except Exception:
             return jsonify({
                 "status": "error",
-                "message": "TeraBox returned non-JSON data (likely a block or redirect page)",
-                "raw_text": response.text[:500], # Show first 500 characters of the response
-                "status_code": response.status_code
+                "message": "Failed to parse API response as JSON",
+                "raw_text": api_res.text[:300]
             }), 500
 
         if data.get("errno") == 0 and "list" in data and len(data["list"]) > 0:
@@ -54,7 +74,7 @@ def handle_api():
 
         return jsonify({
             "status": "error",
-            "message": "Failed to extract download link from TeraBox response.",
+            "message": "Failed to extract download link from API response.",
             "terabox_response": data
         }), 400
 
