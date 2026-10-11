@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify, redirect
-import requests
-import re
 import os
+from terabox_downloader import TeraboxDL
 
 app = Flask(__name__)
 
@@ -15,90 +14,38 @@ def handle_api():
     if not terabox_url:
         return jsonify({"status": "error", "message": "Missing 'url' parameter"}), 400
 
-    # Extract domain and surl code from the input URL
-    match = re.search(r'https?://([a-zA-Z0-9.\-]+)/s/([a-zA-Z0-9\-_]+)', terabox_url)
-    if not match:
-        # Fallback regex if domain isn't fully captured
-        match_code = re.search(r'/s/([a-zA-Z0-9\-_]+)', terabox_url)
-        if not match_code:
-            return jsonify({"status": "error", "message": "Invalid TeraBox URL format"}), 400
-        domain = "www.terabox.com"
-        surl_code = match_code.group(1)
-    else:
-        domain = match.group(1)
-        surl_code = match.group(2)
-
     try:
-        session = requests.Session()
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Cookie": f"ndus={NDUS_COOKIE}; lang=en",
-            "Referer": f"https://{domain}/"
-        }
-
-        # Step 1: Visit the share page using the correct domain
-        share_page_url = f"https://{domain}/s/{surl_code}"
-        page_res = session.get(share_page_url, headers=headers, timeout=20)
+        # Properly format cookie string with lang and ndus
+        cookie_str = f"lang=en; ndus={NDUS_COOKIE}"
+        downloader = TeraboxDL(cookie=cookie_str)
         
-        if page_res.status_code != 200:
-            # Try fallback to standard www.terabox.com if custom domain fails
-            domain = "www.terabox.com"
-            share_page_url = f"https://{domain}/s/{surl_code}"
-            page_res = session.get(share_page_url, headers=headers, timeout=20)
-            
-            if page_res.status_code != 200:
+        # Fetch file info directly using the library wrapper
+        file_info = downloader.get_file_info(terabox_url)
+        
+        if file_info and isinstance(file_info, dict):
+            if "error" in file_info:
                 return jsonify({
-                    "status": "error", 
-                    "message": "Failed to load TeraBox share page (404/Blocked)", 
-                    "attempted_url": share_page_url,
-                    "status_code": page_res.status_code
-                }, 500)
-
-        html_content = page_res.text
-
-        # Step 2: Extract jsToken and sign using regex
-        js_token_match = re.search(r'jsToken["\s*:]+["\']([a-zA-Z0-9]+)["\']', html_content)
-        sign_match = re.search(r'sign["\s*:]+["\']([a-zA-Z0-9]+)["\']', html_content)
-        
-        if not js_token_match:
-            js_token_match = re.search(r'bdstoken["\s*:]+["\']([a-zA-Z0-9]+)["\']', html_content)
-
-        # Step 3: Query the file info endpoint
-        api_url = f"https://{domain}/share/info?surl={surl_code}"
-        if js_token_match:
-            api_url += f"&jsToken={js_token_match.group(1)}"
-        if sign_match:
-            api_url += f"&sign={sign_match.group(1)}"
-
-        api_res = session.get(api_url, headers=headers, timeout=20)
-        
-        try:
-            data = api_res.json()
-        except Exception:
-            return jsonify({
-                "status": "error",
-                "message": "Failed to parse API response as JSON",
-                "raw_text": api_res.text[:300]
-            }), 500
-
-        if data.get("errno") == 0 and "list" in data and len(data["list"]) > 0:
-            file_info = data["list"][0]
-            download_link = file_info.get("dlink") or file_info.get("download_url")
-            
+                    "status": "error",
+                    "message": "TeraBox error returned by downloader",
+                    "details": file_info["error"]
+                }), 400
+                
+            download_link = file_info.get("download_link") or file_info.get("dlink")
             if download_link:
                 return redirect(download_link)
 
         return jsonify({
             "status": "error",
-            "message": "Failed to extract download link from API response.",
-            "terabox_response": data
+            "message": "Could not extract download link from response.",
+            "raw_response": str(file_info)
         }), 400
 
     except Exception as e:
         return jsonify({
             "status": "error",
             "error": str(e),
-            "message": "Internal server error during resolution"
+            "message": "Internal server error during link resolution",
+            "url": terabox_url
         }), 500
 
 @app.route('/')
