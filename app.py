@@ -15,27 +15,44 @@ def handle_api():
     if not terabox_url:
         return jsonify({"status": "error", "message": "Missing 'url' parameter"}), 400
 
-    # Extract the share code from the URL
-    match = re.search(r'/s/([a-zA-Z0-9\-_]+)', terabox_url)
+    # Extract domain and surl code from the input URL
+    match = re.search(r'https?://([a-zA-Z0-9.\-]+)/s/([a-zA-Z0-9\-_]+)', terabox_url)
     if not match:
-        return jsonify({"status": "error", "message": "Invalid TeraBox URL format"}), 400
-    
-    surl_code = match.group(1)
+        # Fallback regex if domain isn't fully captured
+        match_code = re.search(r'/s/([a-zA-Z0-9\-_]+)', terabox_url)
+        if not match_code:
+            return jsonify({"status": "error", "message": "Invalid TeraBox URL format"}), 400
+        domain = "www.terabox.com"
+        surl_code = match_code.group(1)
+    else:
+        domain = match.group(1)
+        surl_code = match.group(2)
 
     try:
         session = requests.Session()
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Cookie": f"ndus={NDUS_COOKIE}; lang=en",
-            "Referer": "https://1024terabox.com/"
+            "Referer": f"https://{domain}/"
         }
 
-        # Step 1: Visit the share page to get cookies and extract security tokens
-        share_page_url = f"https://1024terabox.com/s/{surl_code}"
+        # Step 1: Visit the share page using the correct domain
+        share_page_url = f"https://{domain}/s/{surl_code}"
         page_res = session.get(share_page_url, headers=headers, timeout=20)
         
         if page_res.status_code != 200:
-            return jsonify({"status": "error", "message": "Failed to load TeraBox share page", "status_code": page_res.status_code}), 500
+            # Try fallback to standard www.terabox.com if custom domain fails
+            domain = "www.terabox.com"
+            share_page_url = f"https://{domain}/s/{surl_code}"
+            page_res = session.get(share_page_url, headers=headers, timeout=20)
+            
+            if page_res.status_code != 200:
+                return jsonify({
+                    "status": "error", 
+                    "message": "Failed to load TeraBox share page (404/Blocked)", 
+                    "attempted_url": share_page_url,
+                    "status_code": page_res.status_code
+                }, 500)
 
         html_content = page_res.text
 
@@ -43,12 +60,11 @@ def handle_api():
         js_token_match = re.search(r'jsToken["\s*:]+["\']([a-zA-Z0-9]+)["\']', html_content)
         sign_match = re.search(r'sign["\s*:]+["\']([a-zA-Z0-9]+)["\']', html_content)
         
-        # Alternative pattern check if primary fails
         if not js_token_match:
             js_token_match = re.search(r'bdstoken["\s*:]+["\']([a-zA-Z0-9]+)["\']', html_content)
 
-        # Step 3: Query the file info endpoint using the session and extracted tokens
-        api_url = f"https://1024terabox.com/share/info?surl={surl_code}"
+        # Step 3: Query the file info endpoint
+        api_url = f"https://{domain}/share/info?surl={surl_code}"
         if js_token_match:
             api_url += f"&jsToken={js_token_match.group(1)}"
         if sign_match:
